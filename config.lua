@@ -1,4 +1,5 @@
 Config = {
+    Interact = 'interact',
     EnableSkillCheck = true,
     ImageBasePath = "nui://qb-inventory/html/images/",
     item_bench = {

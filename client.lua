@@ -21,27 +21,30 @@ local function CraftItem(craftedItem, requiredItems, amountToCraft, xpEarned, xp
         end
         if hasAllMaterials then
             if Config.EnableSkillCheck then
-                local success = exports['qb-minigames']:Skillbar('easy', '12345') -- difficulty and words to enter 
-                if success then
-                    QBCore.Functions.Progressbar('crafting_item', 'Crafting ' .. QBCore.Shared.Items[craftedItem].label, (math.random(2000, 5000) * amountToCraft), false, true, {
-                        disableMovement = true,
-                        disableCarMovement = true,
-                        disableMouse = false,
-                        disableCombat = true,
-                    }, {
-                        animDict = 'mini@repair',
-                        anim = 'fixing_a_player',
-                        flags = 16,
-                    }, {}, {}, function()
-                        TriggerServerEvent('qb-crafting:server:receiveItem', craftedItem, requiredItems, amountToCraft, xpEarned, xpType)
-                    end)
-                else
-                    -- Remove a random number of required materials from the player's inventory
+                local seconds = math.random(10,30)
+                local circles = math.random(4,8)
+                exports['ps-ui']:Circle(function(success)
+                    if success then
+                        QBCore.Functions.Progressbar('crafting_item', 'Crafting ' .. QBCore.Shared.Items[craftedItem].label, (math.random(2000, 5000) * amountToCraft), false, true, {
+                            disableMovement = true,
+                            disableCarMovement = true,
+                            disableMouse = false,
+                            disableCombat = true,
+                        }, {
+                            animDict = 'mini@repair',
+                            anim = 'fixing_a_player',
+                            flags = 16,
+                        }, {}, {}, function()
+                            TriggerServerEvent('qb-crafting:server:receiveItem', craftedItem, requiredItems, amountToCraft, xpEarned, xpType)
+                        end)
+                    else
+                         -- Remove a random number of required materials from the player's inventory
                     local randomItem = requiredItems[math.random(#requiredItems)]
                     local randomAmount = math.random(1, randomItem.amount)
                     TriggerServerEvent('qb-crafting:server:removeMaterials', randomItem.item, randomAmount)
                     QBCore.Functions.Notify('Crafting failed, some materials have been lost!', 'error')
-                end
+                    end
+                end, circles, seconds) -- NumberOfCircles, MS 
             else
                 QBCore.Functions.Progressbar('crafting_item', 'Crafting ' .. QBCore.Shared.Items[craftedItem].label, (math.random(2000, 5000) * amountToCraft), false, true, {
                     disableMovement = true,
@@ -172,7 +175,6 @@ local function PickupBench(benchType)
 end
 
 -- Events
-
 RegisterNetEvent('qb-crafting:client:useCraftingTable', function(benchType)
     local playerPed = PlayerPedId()
     local coordsP = GetOffsetFromEntityInWorldCoords(playerPed, 0.0, 1.0, 1.0)
@@ -183,24 +185,57 @@ RegisterNetEvent('qb-crafting:client:useCraftingTable', function(benchType)
     SetEntityHeading(workbench, itemHeading)
     PlaceObjectOnGroundProperly(workbench)
     TriggerServerEvent('qb-crafting:server:removeCraftingTable', benchType)
-    exports['qb-target']:AddTargetEntity(Config[benchType].object, {
-        options = {
-            {
-                icon = 'fas fa-tools',
-                label = string.format(Lang:t('menus.header')),
-                action = function()
-                    OpenCraftingMenu(benchType)
-                end
+
+    if Config.Interact == 'qb-target' then
+        exports['qb-target']:AddTargetEntity(workbench, {
+            options = {
+                {
+                    icon = 'fas fa-tools',
+                    label = string.format(Lang:t('menus.header')),
+                    action = function()
+                        OpenCraftingMenu(benchType)
+                    end
+                },
+                {
+                    event = 'crafting:pickupWorkbench',
+                    icon = 'fas fa-hand-rock',
+                    label = string.format(Lang:t('menus.pickupworkBench')),
+                    action = function()
+                        PickupBench(benchType)
+                    end,
+                }
             },
-            {
-                event = 'crafting:pickupWorkbench',
-                icon = 'fas fa-hand-rock',
-                label = string.format(Lang:t('menus.pickupworkBench')),
-                action = function()
-                    PickupBench(benchType)
-                end,
+            distance = 2.5
+        })
+    elseif Config.Interact == 'interact' then
+        exports.interact:AddEntityInteraction({
+            netId = NetworkGetNetworkIdFromEntity(workbench),
+            name = 'craftingTable', -- optional
+            id = 'craftingTableInteraction', -- needed for removing interactions
+            distance = 2.5, -- optional
+            interactDst = 1.5, -- optional
+            ignoreLos = true, -- optional ignores line of sight
+            offset = vec3(0.2, 0.0, 0.9), -- optional
+            options = {
+                {
+                    label = string.format(Lang:t('menus.header')),
+                    canInteract = function()
+                        return true
+                    end,
+                    action = function(entity)
+                        OpenCraftingMenu(benchType)
+                    end,
+                },
+                {
+                    label = string.format(Lang:t('menus.pickupworkBench')),
+                    canInteract = function()
+                        return true
+                    end,
+                    action = function(entity)
+                        PickupBench(benchType)
+                    end,
+                }
             }
-        },
-        distance = 2.5
-    })
+        })
+    end
 end)
